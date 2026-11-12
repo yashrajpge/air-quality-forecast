@@ -92,8 +92,9 @@ def main():
     os.makedirs("results", exist_ok=True)
     with open("results/summary.json", "w") as f:
         json.dump(results, f, indent=2)
+        f.write("\n")
     with open("results/backtest_predictions.csv", "w", newline="") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator="\n")
         w.writerow(["date", "actual_pm25", "model", "persistence", "weekly_climatology"])
         for k in range(len(actual)):
             w.writerow([target_dates[test_start + k], f"{actual[k]:.2f}",
