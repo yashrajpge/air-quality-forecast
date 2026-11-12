@@ -1,0 +1,24 @@
+{
+  "city": "Pune, India",
+  "window": [
+    "2025-11-13",
+    "2026-11-12"
+  ],
+  "test_days": 120,
+  "model": {
+    "config": "delta target, 200 trees, lr 0.03, depth 2, min_samples_split 20, subsample 0.8, seed 42",
+    "mae": 3.8290480716441384,
+    "rmse": 5.918876595811946,
+    "bias": 0.39179546916231717
+  },
+  "persistence": {
+    "mae": 3.7586458333333335,
+    "rmse": 5.975837039908828,
+    "bias": -0.1826041666666667
+  },
+  "weekly_climatology": {
+    "mae": 4.859315476190476,
+    "rmse": 7.183989367837182,
+    "bias": -0.7789682539682541
+  }
+}
