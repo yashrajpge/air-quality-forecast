@@ -18,6 +18,11 @@ baselines, with every number below produced by the committed code.
   configuration predicts the *change* from today's PM2.5 (a
   persistence-anchored correction): 200 trees, learning rate 0.03,
   depth 2, min_samples_split 20, subsample 0.8, seed 42.
+- **Uncertainty:** every forecast also carries a 90% prediction
+  interval sized by split conformal (from scratch, `src/intervals.py`)
+  over a trailing window of genuine out-of-sample residuals - no
+  distribution assumption. A Gaussian-residual interval is scored as a
+  comparison.
 - **Features (14):** PM2.5 today/yesterday/2 days ago, 3- and 7-day
   rolling means, today's max and min, daily mean temperature, relative
   humidity and wind speed, and cyclic day-of-week / day-of-year
@@ -72,6 +77,19 @@ not dressed up. Both the delta formulation and the configuration were
 chosen by an internal walk-forward on the training slice only
 (`src/sweep.py`) before the test block was scored once.
 
+**90% prediction intervals** (scored on the 92 test days that follow a
+full 28-day calibration window of trailing out-of-sample residuals):
+
+| Interval             | Coverage (nominal 90%) | Mean width |
+|----------------------|-----------------------:|-----------:|
+| Split conformal      |                  88.0% | 18.49 µg/m³ |
+| Gaussian residuals   |                  82.6% | 15.79 µg/m³ |
+
+The conformal interval lands much closer to its nominal coverage than
+the Gaussian one because the residuals are heavy-tailed - exactly the
+situation distribution-free intervals exist for. Both half-widths are
+committed per day in the results CSV.
+
 Per-day forecasts: `results/backtest_predictions.csv` (committed).
 Machine-readable summary: `results/summary.json` (committed).
 
@@ -80,6 +98,7 @@ Machine-readable summary: `results/summary.json` (committed).
 ```
 src/tree.py      regression tree from scratch (vectorized split search)
 src/gbdt.py      gradient boosting over those trees (residual fitting)
+src/intervals.py split-conformal + Gaussian prediction intervals
 src/data.py      Open-Meteo download + hourly-to-daily aggregation
 src/features.py  supervised matrix; features use only past days
 src/sweep.py     train-slice-only model selection
@@ -99,8 +118,9 @@ python src/backtest.py            # final walk-forward on the test block
 
 The tests cover: tree fitting on a noise-free function, boosting
 monotonically reducing training error, features using only days before
-the forecast day, backtest refits never seeing future rows, and exact
-determinism under a fixed seed.
+the forecast day, backtest refits never seeing future rows, exact
+determinism under a fixed seed, and conformal intervals covering at
+their nominal rate on iid data.
 
 ## Attribution
 
