@@ -50,7 +50,7 @@ non-commercial API, CC BY 4.0):
 ## Results (exact, reproducible)
 
 Walk-forward backtest over the last **120 days** of the pinned window
-(2026-07-16 to 2026-11-11): the model is retrained every 7 test days on
+(2026-07-16 to 2026-11-12): the model is retrained every 7 test days on
 all earlier rows only, so no future data ever leaks into a forecast.
 Baselines are scored on the same days. 358 of 365 days were usable (0
 dropped for missing readings); 18 refits; seed 42.
