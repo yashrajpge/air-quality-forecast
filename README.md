@@ -18,11 +18,14 @@ baselines, with every number below produced by the committed code.
   configuration predicts the *change* from today's PM2.5 (a
   persistence-anchored correction): 200 trees, learning rate 0.03,
   depth 2, min_samples_split 20, subsample 0.8, seed 42.
-- **Uncertainty:** every forecast also carries a 90% prediction
-  interval sized by split conformal (from scratch, `src/intervals.py`)
-  over a trailing window of genuine out-of-sample residuals - no
-  distribution assumption. A Gaussian-residual interval is scored as a
-  comparison.
+- **Uncertainty:** every forecast also carries a nominal 90% prediction
+  interval sized by a split-conformal-style quantile (from scratch,
+  `src/intervals.py`) over a trailing 28-day window of genuine
+  out-of-sample residuals, with a Gaussian-residual interval scored as
+  a comparison. Caveat: the classic conformal coverage guarantee
+  assumes exchangeable calibration scores; daily pollution residuals
+  are autocorrelated, so here 90% is a nominal target and the measured
+  coverage below is the honest evidence, not a guaranteed rate.
 - **Features (14):** PM2.5 today/yesterday/2 days ago, 3- and 7-day
   rolling means, today's max and min, daily mean temperature, relative
   humidity and wind speed, and cyclic day-of-week / day-of-year
@@ -77,17 +80,22 @@ not dressed up. Both the delta formulation and the configuration were
 chosen by an internal walk-forward on the training slice only
 (`src/sweep.py`) before the test block was scored once.
 
-**90% prediction intervals** (scored on the 92 test days that follow a
-full 28-day calibration window of trailing out-of-sample residuals):
+**Nominal 90% prediction intervals** (scored on the 92 test days that
+follow a full 28-day calibration window of strictly earlier
+out-of-sample residuals):
 
-| Interval             | Coverage (nominal 90%) | Mean width |
-|----------------------|-----------------------:|-----------:|
-| Split conformal      |                  88.0% | 18.49 µg/m³ |
-| Gaussian residuals   |                  82.6% | 15.79 µg/m³ |
+| Interval                    | Nominal | Measured coverage | Mean width |
+|-----------------------------|--------:|------------------:|-----------:|
+| Conformal-style quantile    |    90%  |             88.0% | 18.49 µg/m³ |
+| Gaussian residuals          |    90%  |             82.6% | 15.79 µg/m³ |
 
-The conformal interval lands much closer to its nominal coverage than
-the Gaussian one because the residuals are heavy-tailed - exactly the
-situation distribution-free intervals exist for. Both half-widths are
+The conformal-style interval came closer to its nominal level than the
+Gaussian one over these 92 days. A plausible explanation is
+heavy-tailed residuals, but that is a hypothesis - it was not tested,
+and 92 days is a modest sample, so treat the gap as observed, not
+explained. Neither interval carries a coverage guarantee here: the
+finite-sample conformal guarantee needs exchangeable scores, which
+autocorrelated daily residuals do not satisfy. Both half-widths are
 committed per day in the results CSV.
 
 Per-day forecasts: `results/backtest_predictions.csv` (committed).
@@ -119,8 +127,10 @@ python src/backtest.py            # final walk-forward on the test block
 The tests cover: tree fitting on a noise-free function, boosting
 monotonically reducing training error, features using only days before
 the forecast day, backtest refits never seeing future rows, exact
-determinism under a fixed seed, and conformal intervals covering at
-their nominal rate on iid data.
+determinism under a fixed seed, and conformal quantile mechanics
+producing ~90% coverage on iid draws (that test validates the
+implementation in an iid setting only - it says nothing about coverage
+on this autocorrelated time series).
 
 ## Attribution
 
