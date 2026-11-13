@@ -14,6 +14,7 @@ import numpy as np
 from data import load_daily, WINDOW
 from features import build_rows, FEATURE_NAMES
 from gbdt import GradientBoostingRegressor
+from intervals import conformal_radius, gaussian_radius, coverage
 from tree import RegressionTree
 
 
@@ -80,10 +81,28 @@ def test_model_is_deterministic():
     print("ok: same seed gives identical predictions")
 
 
+def test_conformal_intervals_cover_at_nominal_rate():
+    # iid residuals: conformal coverage on fresh draws should be near 90%
+    rng = np.random.default_rng(5)
+    covered = 0
+    trials = 400
+    for _ in range(trials):
+        calib = np.abs(rng.laplace(0, 2.0, size=60))
+        r = conformal_radius(calib, 0.10)
+        if abs(rng.laplace(0, 2.0)) <= r:
+            covered += 1
+    cov = covered / trials
+    assert 0.84 < cov < 0.97, cov
+    # degenerate case: a calibration window of zeros gives a zero radius
+    assert conformal_radius(np.zeros(28), 0.10) == 0.0
+    print(f"ok: conformal 90% intervals cover {cov * 100:.1f}% on iid data")
+
+
 if __name__ == "__main__":
     test_tree_learns_simple_function()
     test_boosting_reduces_error()
     test_features_use_only_past_days()
     test_no_leakage_in_backtest_refits()
     test_model_is_deterministic()
+    test_conformal_intervals_cover_at_nominal_rate()
     print("all tests passed")
