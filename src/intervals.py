@@ -1,10 +1,14 @@
-"""Distribution-free prediction intervals from scratch.
+"""Prediction intervals from scratch.
 
-Split conformal: the radius of a (1-alpha) interval is the right
-quantile of absolute residuals on a calibration window of genuine
-out-of-sample predictions. No distribution assumption. Compared here
-against a Gaussian interval (mean +- z * std of trailing residuals),
-which does assume normality.
+Split-conformal-style quantile: the half-width of a nominal (1-alpha)
+interval is a high quantile of absolute residuals on a calibration
+window of genuine out-of-sample predictions. The classic finite-sample
+coverage guarantee (at least 1-alpha) requires exchangeable calibration
+scores; on autocorrelated time series like daily pollution residuals
+that assumption fails, so the levels here are nominal targets and
+coverage is reported as measured, not guaranteed. A Gaussian interval
+(mean +- z * std of trailing residuals) is scored as a comparison; it
+additionally assumes normality.
 """
 
 import math
@@ -15,10 +19,12 @@ Z = {0.20: 1.2816, 0.10: 1.6449}  # two-sided z for 80% and 90% intervals
 
 
 def conformal_radius(abs_residuals, alpha):
-    """Conformal quantile of calibration scores.
+    """Conformal-style quantile of calibration scores.
 
-    Uses the standard finite-sample level ceil((n+1)*(1-alpha))/n so
-    coverage is guaranteed at least 1-alpha on exchangeable data.
+    Uses the standard rank ceil((n+1)*(1-alpha)) of the sorted scores,
+    clipped to the sample range. The finite-sample coverage guarantee
+    attached to this rank assumes exchangeable scores; with rolling
+    time-series calibration treat the level as nominal.
     """
     scores = np.sort(np.asarray(abs_residuals, dtype=float))
     n = len(scores)
