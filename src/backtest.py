@@ -28,9 +28,11 @@ import numpy as np
 from data import load_daily, CITY, WINDOW
 from features import build_rows, FEATURE_NAMES
 from gbdt import GradientBoostingRegressor
+from intervals import conformal_radius, gaussian_radius, coverage
 
 TEST_DAYS = 120
 REFIT_EVERY = 7
+CAL_WINDOW = 28  # trailing out-of-sample residuals used to size intervals
 CONFIG = dict(n_estimators=200, learning_rate=0.03, max_depth=2,
               min_samples_split=20, subsample=0.8, seed=42)
 
@@ -74,6 +76,28 @@ def main():
     persistence = X[test_start:, 0]   # pm25_today
     weekly = X[test_start:, 4]        # pm25_mean_last7
 
+    # Prediction intervals: for each test day after a full calibration
+    # window, size the interval from the previous CAL_WINDOW days of
+    # genuine out-of-sample residuals (predictions made by models that
+    # had never seen the current day).
+    resid = actual - preds[test_start:]
+    n_scored = len(actual) - CAL_WINDOW
+    conf90 = np.full(len(actual), np.nan)
+    gaus90 = np.full(len(actual), np.nan)
+    for k in range(CAL_WINDOW, len(actual)):
+        window = resid[k - CAL_WINDOW:k]
+        conf90[k] = conformal_radius(np.abs(window), 0.10)
+        gaus90[k] = gaussian_radius(window, 0.10)
+    scored = slice(CAL_WINDOW, len(actual))
+    interval_results = {
+        "scored_days": int(n_scored),
+        "calibration_window": CAL_WINDOW,
+        "conformal_90": {"coverage": coverage(actual[scored], preds[test_start:][scored], conf90[scored]),
+                         "mean_width": float(2 * np.mean(conf90[scored]))},
+        "gaussian_90": {"coverage": coverage(actual[scored], preds[test_start:][scored], gaus90[scored]),
+                        "mean_width": float(2 * np.mean(gaus90[scored]))},
+    }
+
     results = {
         "city": CITY,
         "window": WINDOW,
@@ -83,11 +107,16 @@ def main():
                   **metrics(actual, preds[test_start:])},
         "persistence": metrics(actual, persistence),
         "weekly_climatology": metrics(actual, weekly),
+        "intervals_90pct_nominal": interval_results,
     }
     print(f"walk-forward over {len(actual)} test days ({refits} refits):")
     for name in ("model", "persistence", "weekly_climatology"):
         r = results[name]
         print(f"  {name:<19} MAE {r['mae']:6.2f}  RMSE {r['rmse']:6.2f}  bias {r['bias']:+5.2f}")
+    print(f"90% intervals over {n_scored} scored days (trailing {CAL_WINDOW}-day calibration):")
+    for name in ("conformal_90", "gaussian_90"):
+        r = interval_results[name]
+        print(f"  {name:<14} coverage {r['coverage'] * 100:5.1f}%  mean width {r['mean_width']:5.2f} ug/m3")
 
     os.makedirs("results", exist_ok=True)
     with open("results/summary.json", "w") as f:
@@ -95,11 +124,14 @@ def main():
         f.write("\n")
     with open("results/backtest_predictions.csv", "w", newline="") as f:
         w = csv.writer(f, lineterminator="\n")
-        w.writerow(["date", "actual_pm25", "model", "persistence", "weekly_climatology"])
+        w.writerow(["date", "actual_pm25", "model", "persistence", "weekly_climatology",
+                    "conformal90_halfwidth", "gaussian90_halfwidth"])
         for k in range(len(actual)):
             w.writerow([target_dates[test_start + k], f"{actual[k]:.2f}",
                         f"{preds[test_start + k]:.2f}", f"{persistence[k]:.2f}",
-                        f"{weekly[k]:.2f}"])
+                        f"{weekly[k]:.2f}",
+                        "" if np.isnan(conf90[k]) else f"{conf90[k]:.2f}",
+                        "" if np.isnan(gaus90[k]) else f"{gaus90[k]:.2f}"])
     print("wrote results/summary.json and results/backtest_predictions.csv")
 
 
