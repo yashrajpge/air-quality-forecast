@@ -20,5 +20,17 @@
     "mae": 4.859315476190476,
     "rmse": 7.183989367837182,
     "bias": -0.7789682539682541
+  },
+  "intervals_90pct_nominal": {
+    "scored_days": 92,
+    "calibration_window": 28,
+    "conformal_90": {
+      "coverage": 0.8804347826086957,
+      "mean_width": 18.489611169248203
+    },
+    "gaussian_90": {
+      "coverage": 0.8260869565217391,
+      "mean_width": 15.794244376377977
+    }
   }
 }
